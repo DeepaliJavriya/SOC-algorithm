@@ -1,0 +1,110 @@
+// STATE OF CHARGE CALCULATION FOR LITHIUM ION BATTERY//
+
+///////////////////////VOLTAGE DIVIDER DECLARATION///////////////
+int16_t adc1;
+float volts1;
+float VD_volt,volt;
+////////////////////////////////////////////////////////////////////
+
+///////////////////////CURRENT SENSOR DECLARATION////////////////
+float iout;
+int16_t adc0;
+float volts0;
+float curr,curr_soc;
+////////////////////////////////////////////////////////////////////
+
+///////////////////////SOC DECLARATION///////////////////////////
+double S=0,SOC,soc;
+float x;
+unsigned long currentMillis,previousMillis;
+////////////////////////////////////////////////////////////////////
+
+
+void setup() {
+   x = voltage() / 20;//function 
+  if(x >= 4.06 && x <= 4.2)
+    SOC = (- 3740.8232) + (1769.6510*x) - (203.5506*x*x);
+  else if(x >= 3.85 && x<=4.06)
+    SOC = ((349.9*log(x)) - 400.3);
+  else if(x >= 3.67 && x <= 3.84)
+    SOC = (-270.8*pow(x,2) + 2137*x - 4142);
+  else if(x >= 3.59 && x <= 3.66)
+    SOC = (1049*log(x) - 1310);
+  else if( x >= 3.48 && x < 3.59)
+    SOC = (6*pow(10,-14)*exp(9.423*x));
+  else if(x >= 3.35 && x <= 3.47)
+    SOC = (556.5*pow(x,2) - 3711*x + 6187);
+  else
+    SOC = 0;
+ }
+ 
+void loop() {
+  VD_volt = voltage();
+  volt = VD_volt;
+  curr = current();
+  curr_soc = curr;
+  if(curr_soc < 1 && curr_soc > 0)
+    curr_soc = 0;
+  soc = SoC(curr_soc);
+  Serial.println(soc);
+}
+  //////////////////////////////VOLTAGE FUNCTION////////////////
+float voltage()                
+{
+  adc1 = ads.readADC_SingleEnded(1);
+  volts1 = ads.computeVolts(adc1);
+  volts1=volts1*22.78;
+  return volts1;
+}
+////////////////////////////////////////////////////////////////////
+
+/////////////////////////////CURRENT FUNCTION///////////////////////
+float current()                  
+{
+  adc0 = ads.readADC_SingleEnded(0);
+  volts0 = ads.computeVolts(adc0);
+  iout=((volts0 * 60.28) - 150.9);
+  return iout;
+}
+///////////////////////////////////////////////////////////////////
+
+////////////////////////SOC CALCULATION FUNCTION//////////////////
+  double SoC(float curr_soc)
+{
+  currentMillis = millis();
+ double t= (currentMillis-previousMillis);//change in time delta t
+ 
+  previousMillis = currentMillis;
+  if (!(curr_soc == 0.00))
+  {
+   S +=(curr_soc * (t/3600));
+      if (curr_soc > 0.00)
+        {
+          if (VD_volt == (4.2*20)) // 4.2*SERIES (SERIES= No of cell in series)
+            {
+              SOC = 100.0;
+            }
+          else
+            {
+              SOC = SOC + (S*100/37800);   // 4200*PARALLEL    (4200*9)=37800
+             
+              if(SOC>100)
+                {
+                    SOC=100;
+                }
+            }
+        }
+      else
+        {
+          if (VD_volt> (2.5*20))
+            {
+              SOC = SOC + (S*100/37800);    //4200*PARALLEL    (4200*9)=37800
+            }
+          else
+            {
+              SOC = 0.0;
+            }
+        }
+  } 
+  return SOC;
+}
